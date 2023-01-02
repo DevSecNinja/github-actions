@@ -1,0 +1,207 @@
+---
+name: Terraform CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: true
+        type: string
+      run-terraform-apply:
+        required: false
+        type: boolean
+        default: true
+      run-terraform-plan:
+        required: false
+        type: boolean
+        default: true
+      whitelist-ip-addresses:
+        required: false
+        type: boolean
+        default: false
+      terraform-version:
+        required: false
+        type: string
+        default: 1.3.5
+
+jobs:
+  terraform-docs:
+    name: "Terraform Docs"
+    runs-on: ubuntu-latest
+    needs: terraform
+    permissions:
+      contents: write
+    if: ${{ github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, '#skip') && github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' || github.event.issue.pull_request }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Hide config values from GitHub Actions workflow logs
+        uses: azure/powershell@v1
+        with:
+          inlineScript: |
+            ./generic/scripts/powershell/Hide-ConfigValues.ps1
+          azPSVersion: "latest"
+      - name: Render Terraform docs inside the README.md and push changes back to PR branch
+        uses: terraform-docs/gh-actions@v1.0.0
+        with:
+          working-dir: ${{ inputs.working-directory }}
+          output-file: readme.md
+          output-method: inject
+          git-push: "true"
+
+  terraform:
+    name: "Terraform CI/CD"
+    runs-on: ubuntu-latest
+    environment: production
+    if: ${{ !contains(github.event.head_commit.message, '#skip') && github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' }}
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      # Source: https://github.com/actions/checkout/issues/287#issuecomment-1315458401
+      - name: Generate token
+        # Use the Github App private key to request an installation
+        # token with read-only access to the organization's private
+        # repositories. This token is then used in the checkout step
+        # (but not in subsequent steps that create releases and upload
+        # assets, those still use the default token that has write
+        # access to the current repository).
+        id: generate_token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.REPO_READONLY_GITHUB_APP_ID }}
+          private_key: ${{ secrets.REPO_READONLY_GITHUB_APP_KEY }}
+          # Limit permissions to what we need (these need to be
+          # configured in the app settings as well).
+          permissions: >-
+            {"contents": "read"}
+
+      # Checkout the repository to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          token: ${{ steps.generate_token.outputs.token }}
+
+      # Hide potentially sensitive config values from the workflow logs
+      - name: Hide config values from GitHub Actions workflow logs
+        uses: azure/powershell@v1
+        with:
+          inlineScript: |
+            ./generic/scripts/powershell/Hide-ConfigValues.ps1
+          azPSVersion: "latest"
+
+      # Login to Azure to get the Key Vault secret
+      - name: Log in with Azure
+        uses: azure/login@v1
+        with:
+          creds: '{"clientId":"${{ secrets.ARM_GH_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_GH_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_MGMT_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+          enable-AzPSSession: false
+          allow-no-subscriptions: true # This account only has access to the KV
+
+      # Get Key Vault secrets
+      - name: Get Key Vault Secrets
+        uses: Azure/get-keyvault-secrets@v1
+        with:
+          keyvault: "ravensberg-kv" # name of key vault in Azure portal
+          secrets: "sp-terraform-caf-enterprise-scale" # comma separated list of secret keys to fetch from key vault
+        id: getKeyVaultSecrets # ID for secrets that you will reference
+
+      # Set environment variables for Terraform
+      - name: Set Terraform Environment Variables
+        id: set-tf-env-vars
+        run: |
+          echo "ARM_CLIENT_ID=${{ secrets.ARM_TF_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=${{ steps.getKeyVaultSecrets.outputs.sp-terraform-caf-enterprise-scale }}" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=${{ secrets.ARM_MGMT_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=${{ secrets.ARM_TENANT_ID }}" >> $GITHUB_ENV
+
+      # Login to Azure with the admin Service Principal credentials
+      - name: Log in with Azure with Terraform account
+        uses: azure/login@v1
+        with:
+          creds: '{"clientId":"${{ secrets.ARM_TF_CLIENT_ID }}","clientSecret":"${{ steps.getKeyVaultSecrets.outputs.sp-terraform-caf-enterprise-scale }}","subscriptionId":"${{ secrets.ARM_MGMT_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+          enable-AzPSSession: true
+
+      # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_version: ${{ inputs.terraform-version }}
+          #terraform_wrapper: false # Prevents Terraform plan output
+
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Whitelist outgoing IP address
+        uses: azure/powershell@v1
+        if: inputs.whitelist-ip-addresses == true
+        with:
+          inlineScript: |
+            ./generic/scripts/powershell/Update-AzStorageFirewallWithOutgoingIp.ps1 -Action Add
+          azPSVersion: "latest"
+
+      - name: Terraform Plan
+        id: plan
+        if: inputs.run-terraform-plan == true
+        run: terraform plan -input=false -no-color -lock-timeout=5m -out /tmp/tf.plan
+        continue-on-error: true
+
+      - name: Terraform Show
+        id: show
+        if: inputs.run-terraform-plan == true
+        run: terraform show -no-color /tmp/tf.plan
+        continue-on-error: true
+
+      # Source: https://gaunacode.com/deploying-terraform-at-scale-with-github-actions
+      - uses: actions/github-script@v6
+        id: pr_comment
+        name: Add GitHub PR comment
+        if: github.event_name == 'pull_request' && inputs.run-terraform-plan == true
+        env:
+          PLAN: "terraform\n${{ steps.show.outputs.stdout }}"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `## Terraform Workflow - \`${{ github.workflow }}\`
+            #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Check Terraform Plan
+        if: steps.plan.outcome == 'failure' && inputs.run-terraform-plan == true
+        run: |
+          echo "Terraform plan returned ${{ steps.plan.outcome }}"
+          exit 1
+
+        # On push to main, build or change infrastructure according to Terraform configuration files
+        # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
+      - name: Terraform Apply
+        if: inputs.run-terraform-apply == true ## && github.ref == 'refs/heads/main' || github.event.label.name == 'apply_on_commit' # apply_on_commit doesn't seem to work in this setting
+        run: terraform apply -input=false -auto-approve /tmp/tf.plan
