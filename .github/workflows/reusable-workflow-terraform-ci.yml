@@ -100,7 +100,7 @@ jobs:
         uses: azure/powershell@v1
         with:
           inlineScript: |
-            ./generic/scripts/powershell/Hide-ConfigValues.ps1
+            ./generic/scripts/powershell/module/scripts/Hide-ConfigValues.ps1
           azPSVersion: "latest"
 
       # Login to Azure to get the Key Vault secret
@@ -175,7 +175,7 @@ jobs:
         if: inputs.whitelist-ip-addresses == true
         with:
           inlineScript: |
-            ./generic/scripts/powershell/Update-AzStorageFirewallWithOutgoingIp.ps1 -Action Add
+            ./generic/scripts/powershell/module/scripts/Update-AzStorageFirewallWithOutgoingIp.ps1 -Action Add
           azPSVersion: "latest"
 
       - name: Terraform Plan
