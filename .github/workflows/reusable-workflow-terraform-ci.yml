@@ -44,7 +44,7 @@ jobs:
         uses: azure/powershell@v1
         with:
           inlineScript: |
-            ./generic/scripts/powershell/Hide-ConfigValues.ps1
+            ./generic/scripts/powershell/module/scripts/Hide-ConfigValues.ps1
           azPSVersion: "latest"
       - name: Render Terraform docs inside the README.md and push changes back to PR branch
         uses: terraform-docs/gh-actions@v1.0.0
