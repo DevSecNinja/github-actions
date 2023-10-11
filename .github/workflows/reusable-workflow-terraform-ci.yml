@@ -27,6 +27,10 @@ on:
         required: false
         type: boolean
         default: false
+      gh-pr-comment:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   terraform-docs:
@@ -188,7 +192,7 @@ jobs:
       - uses: actions/github-script@v6
         id: pr_comment
         name: Add GitHub PR comment
-        if: github.event_name == 'pull_request' && inputs.run-terraform-plan == true
+        if: github.event_name == 'pull_request' && inputs.run-terraform-plan == true && inputs.gh-pr-comment == true
         env:
           PLAN: "terraform\n${{ steps.show.outputs.stdout }}"
         with:
