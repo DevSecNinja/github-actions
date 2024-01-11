@@ -31,6 +31,10 @@ on:
         required: false
         type: boolean
         default: false
+      hide-sensitive-values:
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   terraform-docs:
@@ -96,6 +100,7 @@ jobs:
       # Hide potentially sensitive config values from the workflow logs
       - name: Hide config values from GitHub Actions workflow logs
         uses: azure/powershell@v1
+        if: inputs.hide-sensitive-values == true
         with:
           inlineScript: |
             ./generic/scripts/powershell/module/scripts/Hide-ConfigValues.ps1
