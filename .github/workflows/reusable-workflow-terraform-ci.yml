@@ -15,6 +15,10 @@ on:
         required: false
         type: boolean
         default: true
+      run-terraform-destroy:
+        required: false
+        type: boolean
+        default: false
       whitelist-ip-addresses:
         required: false
         type: boolean
@@ -229,6 +233,11 @@ jobs:
       - name: Terraform Apply
         if: inputs.run-terraform-apply == true ## && github.ref == 'refs/heads/main' || github.event.label.name == 'apply_on_commit' # apply_on_commit doesn't seem to work in this setting
         run: terraform apply -input=false -auto-approve /tmp/tf.plan
+
+      - name: Terraform Destroy
+        id: destroy
+        if: inputs.run-terraform-destroy == true
+        run: terraform destroy -input=false -auto-approve
 
       - name: Remove whitelisted IP address if failed # Since normally Terraform apply would remove the whitelisted IP
         uses: azure/powershell@v1
