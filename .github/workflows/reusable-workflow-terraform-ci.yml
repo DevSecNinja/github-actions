@@ -23,10 +23,10 @@ on:
         required: false
         type: boolean
         default: false
-      config-path:
+      scripts-path:
         required: false
         type: string
-        default: ./generic
+        default: ./generic/scripts/powershell/module/scripts
       terraform-version:
         required: false
         type: string
@@ -186,7 +186,7 @@ jobs:
         if: inputs.whitelist-ip-addresses == true
         with:
           inlineScript: |
-            ${{ inputs.config-path }}/scripts/powershell/module/scripts/Update-AzStorageFirewallWithOutgoingIp.ps1 -Action Add
+            ${{ inputs.scripts-path }}/Update-AzStorageFirewallWithOutgoingIp.ps1 -Action Add
           azPSVersion: "latest"
 
       - name: Terraform Plan
@@ -248,5 +248,5 @@ jobs:
         if: inputs.whitelist-ip-addresses == true && always() # TODO: Need to test how Actions deal with this
         with:
           inlineScript: |
-            ${{ inputs.config-path }}/scripts/powershell/module/scripts/Update-AzStorageFirewallWithOutgoingIp.ps1 -Action Remove
+            ${{ inputs.scripts-path }}/Update-AzStorageFirewallWithOutgoingIp.ps1 -Action Remove
           azPSVersion: "latest"
