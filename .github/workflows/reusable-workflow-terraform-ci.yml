@@ -34,7 +34,7 @@ on:
       use-oid-connect:
         required: false
         type: boolean
-        default: false
+        default: true
       gh-pr-comment:
         required: false
         type: boolean
