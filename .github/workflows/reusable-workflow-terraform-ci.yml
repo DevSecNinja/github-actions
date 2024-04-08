@@ -41,7 +41,7 @@ on:
         default: true
 
 env:
-  TERRAFORM_VERSION: 1.7.5
+  TERRAFORM_VERSION: 1.7.4
 
 jobs:
   terraform-docs:
