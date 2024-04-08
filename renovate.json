@@ -9,7 +9,7 @@
         "^\\.github/workflows/.*\\.yml$"
       ],
       "matchStrings": [
-        "env:\\s*TERRAFORM_VERSION: (?<currentValue>\\d+\\.\\d+\\.\\d+)"
+        "terraform-version:\\s*required:\\s*false\\s*type:\\s*string\\s*default:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)"
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "hashicorp/terraform",
