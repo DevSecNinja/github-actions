@@ -106,7 +106,7 @@ jobs:
 
       # Hide potentially sensitive config values from the workflow logs
       - name: Hide config values from GitHub Actions workflow logs
-        uses: azure/powershell@v1
+        uses: azure/powershell@v2
         if: inputs.hide-sensitive-values == true
         with:
           inlineScript: |
@@ -144,7 +144,7 @@ jobs:
         run: terraform validate -no-color
 
       - name: Whitelist outgoing IP address
-        uses: azure/powershell@v1
+        uses: azure/powershell@v2
         if: inputs.whitelist-ip-addresses == true
         with:
           inlineScript: |
@@ -206,7 +206,7 @@ jobs:
         run: terraform destroy -input=false -auto-approve
 
       - name: Remove whitelisted IP address if failed # Since normally Terraform apply would remove the whitelisted IP
-        uses: azure/powershell@v1
+        uses: azure/powershell@v2
         if: inputs.whitelist-ip-addresses == true && always() # TODO: Need to test how Actions deal with this
         with:
           inlineScript: |
