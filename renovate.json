@@ -12,6 +12,7 @@
         "env:\\s*TERRAFORM_VERSION: (?<currentValue>\\d+\\.\\d+\\.\\d+)"
       ],
       "datasourceTemplate": "terraform-version",
+      "depNameTemplate": "Terraform",
       "versioningTemplate": "semver"
     }
   ]
