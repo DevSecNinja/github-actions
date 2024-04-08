@@ -30,7 +30,7 @@ on:
       terraform-version:
         required: false
         type: string
-        default: 1.7.4
+        default: 1.7.5
       gh-pr-comment:
         required: false
         type: boolean
