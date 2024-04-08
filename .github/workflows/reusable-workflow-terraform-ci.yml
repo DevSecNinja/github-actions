@@ -52,7 +52,7 @@ jobs:
       contents: write
     if: ${{ github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, '#skip') && github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' || github.event.issue.pull_request }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
       - name: Render Terraform docs inside the README.md and push changes back to PR branch
