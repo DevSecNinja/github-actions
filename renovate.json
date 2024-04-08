@@ -11,8 +11,8 @@
       "matchStrings": [
         "env:\\s*TERRAFORM_VERSION: (?<currentValue>\\d+\\.\\d+\\.\\d+)"
       ],
-      "datasourceTemplate": "terraform-version",
-      "depNameTemplate": "Terraform",
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "hashicorp/terraform",
       "versioningTemplate": "semver"
     }
   ]
