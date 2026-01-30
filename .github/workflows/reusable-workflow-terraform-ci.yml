@@ -161,7 +161,7 @@ jobs:
         continue-on-error: true
 
       # Source: https://gaunacode.com/deploying-terraform-at-scale-with-github-actions
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         id: pr_comment
         name: Add GitHub PR comment
         if: github.event_name == 'pull_request' && inputs.run-terraform-plan == true && inputs.gh-pr-comment == true
